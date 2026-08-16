@@ -1,0 +1,27 @@
+{
+  "name": "ai-marketer",
+  "version": "0.1.0",
+  "description": "Self-hostable AI marketing automation platform",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:broker\" \"npm run dev:frontend\"",
+    "dev:api": "npm run dev --workspace=packages/api",
+    "dev:broker": "npm run dev --workspace=packages/broker",
+    "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

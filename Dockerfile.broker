@@ -1,0 +1,13 @@
+# Broker service
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY packages/broker/package*.json ./
+RUN npm ci --only=production
+
+COPY packages/broker ./
+
+EXPOSE 3000
+
+CMD ["node", "dist/index.js"]
