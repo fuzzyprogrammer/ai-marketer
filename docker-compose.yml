@@ -3,14 +3,13 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: ai-marketer-postgres
-    environment:
-      POSTGRES_USER: ai_marketer
-      POSTGRES_PASSWORD: ai_marketer_dev
-      POSTGRES_DB: ai_marketer
+    env_file:
+      - .env.production
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups:rw
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ai_marketer"]
       interval: 10s
@@ -33,10 +32,9 @@ services:
   minio:
     image: minio/minio:latest
     container_name: ai-marketer-minio
+    env_file:
+      - .env.production
     command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -56,26 +54,21 @@ services:
       - "20128:8080"
     environment:
       - PORT=8080
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # API service
   api:
     build:
-      context: ./packages/api
-      dockerfile: ../../Dockerfile.api
+      context: .
+      dockerfile: Dockerfile.api
     container_name: ai-marketer-api
     ports:
       - "4000:4000"
+    env_file:
+      - .env.production
     environment:
       - DATABASE_URL=postgresql://ai_marketer:ai_marketer_dev@postgres:5432/ai_marketer
       - REDIS_URL=redis://redis:6379
       - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
       - BROKER_URL=http://broker:3000
       - NODE_ENV=development
     depends_on:
@@ -85,18 +78,18 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    volumes:
-      - ./packages/api:/app
-      - /app/node_modules
+    volumes: []
 
   # Broker service
   broker:
     build:
-      context: ./packages/broker
-      dockerfile: ../../Dockerfile.broker
+      context: .
+      dockerfile: Dockerfile.broker
     container_name: ai-marketer-broker
     ports:
       - "3000:3000"
+    env_file:
+      - .env.production
     environment:
       - OMINROUTE_URL=http://omniroute:8080
       - REDIS_URL=redis://redis:6379
@@ -104,35 +97,74 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      omniroute:
-        condition: service_healthy
-    volumes:
-      - ./packages/broker:/app
-      - /app/node_modules
+    volumes: []
 
   # Render worker
   render-worker:
     build:
-      context: ./packages/workers/render-worker
-      dockerfile: ../../../Dockerfile.worker
+      context: .
+      dockerfile: Dockerfile.worker
     container_name: ai-marketer-render-worker
+    env_file:
+      - .env.production
     environment:
       - REDIS_URL=redis://redis:6379
       - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
       - NODE_ENV=development
     depends_on:
       redis:
         condition: service_healthy
       minio:
         condition: service_healthy
-    volumes:
-      - ./packages/workers/render-worker:/app
-      - /app/node_modules
+    volumes: []
     # Headless Chromium and FFmpeg are installed in the Dockerfile
+
+  # Poster worker
+  poster:
+    build:
+      context: .
+      dockerfile: Dockerfile.poster
+    container_name: ai-marketer-poster
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://ai_marketer:ai_marketer_dev@postgres:5432/ai_marketer
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - BROKER_URL=http://broker:3000
+      - NODE_ENV=development
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes: []
+
+  # Generator worker
+  generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.generator
+    container_name: ai-marketer-generator
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://ai_marketer:ai_marketer_dev@postgres:5432/ai_marketer
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - BROKER_URL=http://broker:3000
+      - NODE_ENV=development
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    volumes: []
 
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  backups:

@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-08-17T15:45:52Z",
+  "backup_method": "docker-volume-copy",
+  "backup_directory": "/d/projects/opencode/ai-marketer/backups/minio_data_20260817_211550",
+  "retention_days": 14,
+  "source": "minio container data directory"
+}
